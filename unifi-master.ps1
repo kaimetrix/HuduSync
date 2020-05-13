@@ -560,7 +560,7 @@ foreach ($site in $Sites) {
                     value                 = GetPortForwards
                     },@{
                     asset_layout_field_id = GetFieldId('Modules')
-                    value                 = "$(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/get/setting/usg" -WebSession $myWebSession).data)) {$rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('site_id');(($rule | Convertto-Json -depth 5) -replace ',','<br>&nbsp;&nbsp;&nbsp;&nbsp;' -replace '{','{<br>&nbsp;&nbsp;&nbsp;&nbsp;'-replace '}','<br>}<br>') })"
+                    value                 = "$(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/get/setting/usg" -WebSession $myWebSession).data)) {$rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('key');$rule.PSObject.properties.remove('site_id');(($rule | Convertto-Json -depth 5) -replace ',','<br>' -replace '([\{\}\"\[\]])','' -replace '_',' ' )})"
                     },@{
                     asset_layout_field_id = GetFieldId('Location')
                     value                 = "$($location)"
