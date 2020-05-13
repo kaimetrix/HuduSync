@@ -5,9 +5,11 @@ The sync script WILL FAIL if any field names or types are different then the tem
 
 <b>TO DO:<br></b>
 
-[] Compare existing assets with info in script and only update if different.(Waiting on API updates here)<br>
+[X] Compare existing assets with info in script and only update if different.<br>
 [] Shrink number of hits to IP Info by checking if info is needed before doing update<br>
 [] Correct GetAssets to be faster<br>
+[] More documentation?
+[] Port map for switches... this is a moon shot but i'll think of something... any ideas are appreciated.
 <i>GetAssets is the slowest aspect of the script right now, on average it takes about 1-20 seconds (depending on number of assets, some of my hudu companies have over 1000 assets, i document way too much....) for each call, with 50-60 sites in Unifi that adds up to over 10 minutes per sync... really inefficient.</i><br>
 
 Any ideas from the community on changes or additional info I should work into the documentation script would be welcome... send it over as an issue on the script.
