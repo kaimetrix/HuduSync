@@ -138,7 +138,7 @@ function WriteAssets() {
             }
             if ($tempbody.count -gt 0) {
                 try {
-                    Write-Host "Updating $name"
+                    Write-Host "Updating $($company.name) $name"
                     (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets/$($oldassets.id)" -Method PUT -Headers $huduheads -Body $body).data
                 }
                 catch {
