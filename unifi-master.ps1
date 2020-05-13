@@ -123,19 +123,19 @@ function WriteAssets() {
         } elseif ($oldassets) {
             $tempbody = New-Object System.Collections.Generic.List[System.Object]
             ($body | ConvertFrom-Json).asset.fields.value |
-            ForEach-Object {
-                if ($_ -notmatch '/a/') {
-                    if ($oldassets.fields.value -notcontains $_) {
-                        $tempbody += $_
-                        }
-                } else {
-                    $_ | ConvertFrom-Json | ForEach-Object {
-                        if (($oldassets.fields.value | Where-Object { $_ -match '/a/' } | ConvertFrom-Json).id -notcontains $_.id ) {
-                            $tempbody += $_[0]
+                ForEach-Object {
+                    if ($_ -notmatch '/a/') {
+                        if ($oldassets.fields.value -notcontains $_) {
+                            $tempbody += $_
                             }
+                    } else {
+                        $_ | ConvertFrom-Json | ForEach-Object {
+                            if (($oldassets.fields.value | Where-Object { $_ -match '/a/' } | ConvertFrom-Json).id -notcontains $_.id ) {
+                                $tempbody += $_[0]
+                                }
+                        }
                     }
                 }
-            }
             if ($tempbody.count -gt 0) {
                 try {
                     Write-Host "Updating $($company.name) $name"
@@ -144,8 +144,7 @@ function WriteAssets() {
                 catch {
                     $_.Exception.Message
                     "$($huduurl)/companies/$($company.id)/assets/$($oldassets.id)"
-                    
-                    Start-Sleep -s 10
+                    $body
                 }
             }
         } else {
