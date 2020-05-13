@@ -572,7 +572,7 @@ foreach ($site in $Sites) {
                     value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Internet")) -and $_.fields.value -eq $location}))
                     },@{
                     asset_layout_field_id = GetFieldId('Firewall Rules')
-                    value                 = "$(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/firewallrule" -WebSession $myWebSession).data)) {$rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('site_id');(($rule | Convertto-Json -depth 5) -replace ',','<br>&nbsp;&nbsp;&nbsp;&nbsp;' -replace '{','{<br>&nbsp;&nbsp;&nbsp;&nbsp;'-replace '}','<br>}<br>') })"
+                    value                 = "$(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/firewallrule" -WebSession $myWebSession).data)) {"<b>Rule $($rule.rule_index)</b>" + $rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('site_id');$rule.PSObject.properties.remove('rule_index');(($rule | Convertto-Json -depth 5) -replace ',','<br>' -replace '([\{\}\"\[\]])','' -replace '_',' ' ) + "<br><br>"})"
                     },@{
                     asset_layout_field_id = GetFieldId('Management URL')
                     value                 = "$($controller)/manage/site/$($site.name)/settings/routing/list"
