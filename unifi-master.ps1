@@ -8,7 +8,7 @@
 [string]$huduurl = "https://XXXXXXXXXXXXXXXX/api/v1"  # Your hudu URL goes here with /api/v1 on the end ie: "https://hudu.domain.com/api/v1"
 
 $huduheads = @{
-    'x-api-key' = 'XXXXXXXXXXXXXXXXXXXXXX'  # Your HUDU API Key, destructive isn't required but the autocorrecter for duplicate assets won't work if it's not set
+    'x-api-key' = 'XXXXXXXXXXXXXXXXXXXXXX'  # Your HUDU API Key, destructive isn't required but the script tries to delete if it finds duplicate assets created by the script exist, so that function won't work.  Not a biggie
     'Content-Type' = 'application/json'
     }
 
