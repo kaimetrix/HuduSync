@@ -1,5 +1,7 @@
 <h1>HUDU <---- Unifi Documentation Script</h1><br>
-Since HUDU lacks a flexible/dynamic asset right now this does require a static template created there, i've included a template creation script but i would recommend hand creating it the templates if you have any assets stored right now, or modifying the unifi-master script with the correct field names and template names.  The script WILL FAIL if any fields are different.<br><br>
+Since HUDU lacks a flexible/dynamic asset right now this does require a static template created there, i've included a template creation script but i would recommend hand creating the templates if you have any assets stored right now, or modifying the unifi-master script with the correct field names and template names where you want the data, i haven't tested the CREATE script at all, but theoretically it should work.<br>
+
+The sync script WILL FAIL if any field names or types are different then the template specifies.<br><br>
 
 <b>TO DO:<br></b>
 
