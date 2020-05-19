@@ -9,8 +9,9 @@ The sync script WILL FAIL if any field names or types are different then the tem
 [] Shrink number of hits to IP Info by checking if info is needed before doing update<br>
 [] Correct GetAssets to be faster<br>
 [] More documentation?<br>
-[] Port map for switches... this is a moon shot but i'll think of something... any ideas are appreciated.
-<i>GetAssets is the slowest aspect of the script right now, on average it takes about 1-20 seconds (depending on number of assets, some of my hudu companies have over 1000 assets, i document way too much....) for each call, with 50-60 sites in Unifi that adds up to over 10 minutes per sync... really inefficient.</i><br>
+[] Port map for switches... this is a moon shot but i'll think of something... any ideas are appreciated. <br><br>
+
+<i>GetAssets is the slowest aspect of the script right now, on average it takes about 1-20 seconds (depending on number of assets, some of my hudu companies have over 1000 assets, i document way too much....) for each call, with 50-60 sites in Unifi that adds up to over 10 minutes per sync... really inefficient, so far HUDU doesn't allow filtering of assets or setting pagination numbers so each 25 assets require one request, slows the UI to a crawl while it's running and takes forever right now, Dev team has told me thats on the short list at the moment (both things pagination and filtered results), but we'll see when it's around..</i><br>
 
 Any ideas from the community on changes or additional info I should work into the documentation script would be welcome... send it over as an issue on the script.
 
