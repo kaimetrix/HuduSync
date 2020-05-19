@@ -2,60 +2,61 @@
 [string]$huduurl = "https://XXXXXXXXXXXXX/api/v1"  # Your hudu URL goes here with /api/v1 on the end ie: "https://hudu.domain.com/api/v1"
 
 $huduheads = @{
-    'x-api-key' = 'XXXXXXXXXXXXXXXXX'  # Your HUDU API Key, destructive isn't required but the autocorrecter for duplicate assets won't work if it's not set
-    'Content-Type' = 'application/json'
-    }
+  'x-api-key' = 'XXXXXXXXXXXXXXXXX'  # Your HUDU API Key, destructive isn't required but the autocorrecter for duplicate assets won't work if it's not set
+  'Content-Type' = 'application/json'
+  }
 
 $templates = @{
-    "asset_layout" = @{
-      "name" = "Networks"
-      "icon" = "fas fa-network-wired"
-      "color" = "#a7db11"
-      "icon_color" = "#0f0d0d"
-      "active" = "true"
-      "include_passwords" = "true"
-      "include_comments" = "true"
-      "include_files" = "true"
-      "fields" = @{
-          "label" = "Location"
-          "field_type" = "Text"
-        },@{
-          "label" = "Purpose"
-          "field_type" = "Text"
-        },@{
-          "label" = "VLAN ID"
-          "field_type" = "Number"
-        },@{
-          "label" = "DHCP Server"
-          "field_type" = "Text"
-        },@{
-          "label" = "DHCP Scope"
-          "field_type" = "Text"
-        },@{
-          "label" = "DNS Servers"
-          "field_type" = "RichText"
-        },@{
-          "label" = "Gateway"
-          "field_type" = "Text"
-        },@{
-          "label" = "IP Address (CIDR)"
-          "field_type" = "Text"
-        },@{
-          "label" = "Description"
-          "field_type" = "RichText"
-        },@{
-          "label" = "Switches"
-          "field_type" = "AssetLink"
-        },@{
-          "label" = "Management URL"
-          "field_type" = "Website"
-        },@{
-          "label" = "Routers"
-          "field_type" = "AssetLink"
-        },@{
-          "label" = "Sync Source"
-          "field_type" = "Text"
-        }
+  "asset_layout" = @{
+    "name" = "Networks"
+    "icon" = "fas fa-network-wired"
+    "color" = "#a7db11"
+    "icon_color" = "#0f0d0d"
+    "active" = "true"
+    "include_passwords" = "true"
+    "include_comments" = "true"
+    "include_files" = "true"
+    "fields" = @{
+    "label" = "Location"
+    "field_type" = "Text"
+      },@{
+      "label" = "Purpose"
+      "field_type" = "Text"
+      },@{
+      "label" = "VLAN ID"
+      "field_type" = "Number"
+      },@{
+      "label" = "DHCP Server"
+      "field_type" = "Text"
+      },@{
+      "label" = "DHCP Scope"
+      "field_type" = "Text"
+      },@{
+      "label" = "DNS Servers"
+      "field_type" = "RichText"
+      },@{
+      "label" = "Gateway"
+      "field_type" = "Text"
+      },@{
+      "label" = "IP Address (CIDR)"
+      "field_type" = "Text"
+      },@{
+      "label" = "Description"
+      "field_type" = "RichText"
+      },@{
+      "label" = "Switches"
+      "field_type" = "AssetLink"
+      },@{
+      "label" = "Management URL"
+      "field_type" = "Website"
+      },@{
+      "label" = "Routers"
+      "field_type" = "AssetLink"
+      },@{
+      "label" = "Sync Source"
+      "field_type" = "Text"
+      }
+    }
   },@{
     "asset_layout" = @{  
       "name" = "Network Devices"
@@ -118,6 +119,7 @@ $templates = @{
           "label" = "Sync Source"
           "field_type" = "Text"
         }
+    }
   },@{
     "asset_layout" = @{
       "name" = "Wireless"
@@ -174,6 +176,7 @@ $templates = @{
         },@{
           "label" = "Sync Source"
         }
+    }
   },@{
     "asset_layout" = @{
       "name" = "Internet"
@@ -249,6 +252,7 @@ $templates = @{
           "label" = "Sync Source"
           "field_type" = "Text"
         }
+    }
   },@{
     "asset_layout" = @{
       "name" = "VPNs"
@@ -318,6 +322,7 @@ $templates = @{
           "label" = "Sync Source"
           "field_type" = "Text"
         }
+    }
   },@{
     "asset_layout" = @{
       "name" = "Firewall"
@@ -354,7 +359,7 @@ $templates = @{
           "label" = "Sync Source"
           "field_type" = "Text"
         }
-    }
+      }
   }
   $Layouts = (Invoke-Restmethod -Uri "$($huduurl)/asset_layouts" -Headers $huduheads).asset_layouts
   foreach ($template in $templates) {
