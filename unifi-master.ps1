@@ -84,7 +84,7 @@ function GetAssets() {
     while ($i -lt 9999) {
         try {
             $newassets = (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets?page=$i" -Headers $huduheads)
-            if ($newassets.assets.count -eq 0 -and $newassets -ne $null) {
+            if ($null -ne $newassets -and $newassets.assets.count -eq 0) {
                 $newassets = $newassets | ConvertFrom-Json -AsHashTable
             }
         }
