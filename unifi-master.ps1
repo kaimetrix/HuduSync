@@ -58,7 +58,7 @@ function GetSpeedTest() {
     if ($test.xput_download -gt 1) {
         $stest = "DL $([math]::Round($test.xput_download,2)) Mbps / UL $([math]::Round($test.xput_upload,2)) Mbps<br>Latency $($test.latency) ms<br>Performed: $($(Get-Date -Day 1 -Month 1 -Year 1970).AddMilliseconds($test.time))"
     }
-  else {
+    else {
         $stest = "No recent test available."
     }
     return "$stest"
@@ -122,7 +122,7 @@ function WriteAssets() {
                 $body
             }
         }
- elseif ($oldassets) {
+        elseif ($oldassets) {
             $tempbody = New-Object System.Collections.Generic.List[System.Object]
             ($body | ConvertFrom-Json).asset.fields.value |
                 ForEach-Object {
@@ -131,7 +131,7 @@ function WriteAssets() {
                             $tempbody += $_
                             }
                     }
- else {
+                    else {
                         $_ | ConvertFrom-Json | ForEach-Object {
                             if (($oldassets.fields.value | Where-Object { $_ -match '/a/' } | ConvertFrom-Json).id -notcontains $_.id ) {
                                 $tempbody += $_[0]
@@ -151,7 +151,7 @@ function WriteAssets() {
                 }
             }
         }
- else {
+        else {
             try {
                 Write-Host "Creating $name"
                 (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets" -Method POST -Headers $huduheads -Body $body).data
@@ -176,7 +176,7 @@ function GetAttachedAssets($netassets) {
         $attachedassets.Add(@{})
         $attachedassets = ($attachedassets | ConvertTo-Json) -replace '\r\n', '' -replace '  ', ''
     }
- else {
+    else {
         $attachedassets = ""
         }
     return $attachedassets
@@ -220,7 +220,7 @@ function CreateArchiveList() {
         if ($archiveassets -ne $false) {
             $archiveassets = $archiveassets | Where-Object { $_.id -ne $oldasset.id }
         }
- else {
+        else {
             $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" -and $_.id -ne $oldasset.id }
         }
     }
@@ -314,6 +314,9 @@ foreach ($site in $Sites) {
         ################ Networks ######################
         $templateid = GetTemplateId("Networks")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -ne "WAN" -and $_.Purpose -ne "site-vpn" }
+        if ($devices.count -eq 0) {
+            break
+        }
         foreach ($device in $devices) {
             $name = SetName
             $body = ConvertTo-Json @{
@@ -435,10 +438,10 @@ foreach ($site in $Sites) {
             if ($device.wan_type -match 'static') {
                 $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
             }
- elseif ($routerip) {
+            elseif ($routerip) {
                 $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($routerip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
             }
- else {
+            else {
                 $inetinfo = "Unknown"
             }
             $body = ConvertTo-Json @{
@@ -592,7 +595,7 @@ foreach ($site in $Sites) {
         $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $site.name })
         WriteAssets
     }
- else {
+    else {
             Write-Host "`nMatch NOT Found for $($site.desc)"
     }
 }
