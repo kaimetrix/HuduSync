@@ -237,19 +237,18 @@ function GetFieldId($fieldname) {
     return $fieldid
 }
 #EndRegion Functions
-
-# Fill Global Dynamic Variables
+#Region Global Dynamic Variables
 $Companies = GetCompanies
 $myWebSession = UniFiLogin
 $Sites = GetSites | Sort-Object -Property desc
-#$Sites=GetSites
 $Layouts = (Invoke-Restmethod -Uri "$($huduurl)/asset_layouts" -Headers $huduheads).asset_layouts
-
+#EndRegion Global Dynamic Variables
 foreach ($site in $Sites) {  
     $company = ($Companies | Where-Object { $($site.desc) -like "*$($_.name)*" })
     if ($company) {
         $location = SetLocation
-        Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
+        #Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
+        #Region Network Devices
         ################ Devices ######################
         $templateid = GetTemplateId("Network Devices")
         $assets = GetAssets
@@ -316,6 +315,8 @@ foreach ($site in $Sites) {
             ArchiveOldAssets
             $archiveassets = $false
         }
+        #EndRegion Network Devices
+        #Region Networks
         ################ Networks ######################
         $templateid = GetTemplateId("Networks")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -ne "WAN" -and $_.Purpose -ne "site-vpn" }
@@ -375,6 +376,8 @@ foreach ($site in $Sites) {
             ArchiveOldAssets
             $archiveassets = $false
         }
+        #EndRegion Networks
+        #Region WiFi
         ################ WiFi ######################
         $templateid = GetTemplateId("Wireless")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/wlanconf/" -WebSession $myWebSession).data
@@ -441,6 +444,8 @@ foreach ($site in $Sites) {
             ArchiveOldAssets
             $archiveassets = $false
         }
+        #EndRegion WiFi
+        #Region Internet
         ################ Internet ######################
         $templateid = GetTemplateId("Internet")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -eq "WAN" }
@@ -514,6 +519,8 @@ foreach ($site in $Sites) {
             ArchiveOldAssets
             $archiveassets = $false
         }
+        #EndRegion Internet
+        #Region VPN
         ################ VPN ######################
         $templateid = GetTemplateId("VPNs")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -eq "site-vpn" }
@@ -582,6 +589,8 @@ foreach ($site in $Sites) {
             ArchiveOldAssets
             $archiveassets = $false
         }
+        #EndRegion VPN
+        #Region Firewall
         ################ Firewall ######################
         [int]$templateid = GetTemplateId("Firewall")
         $body = ConvertTo-Json @{
@@ -617,6 +626,7 @@ foreach ($site in $Sites) {
             } -Depth 6
         $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $site.name })
         WriteAssets
+        #EndRegion Firewall
     }
     else {
             Write-Host "`nMatch NOT Found for $($site.desc)"
