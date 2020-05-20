@@ -247,7 +247,7 @@ foreach ($site in $Sites) {
     $company = ($Companies | Where-Object { $($site.desc) -like "*$($_.name)*" })
     if ($company) {
         $location = SetLocation
-        #Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
+        Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
         #Region Network Devices
         ################ Devices ######################
         $templateid = GetTemplateId("Network Devices")
