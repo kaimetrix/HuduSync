@@ -1,4 +1,5 @@
 ﻿Clear-Host
+#Region Variables
 # Make sure you define these:
 #Unifi
 [string]$controller = "https://XXXXXXXXXXXXXXXXXXXX:8443"  #Your Unifi URL goes here with the port number ie "https://unifi.domain.com:8443"
@@ -19,7 +20,7 @@ $regex = ‘\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b’ #RegEx to Get IP Address r
 
 Write-Host "`nSync started at $(Get-Date)"
 Write-Host "`nStarting Unifi Update"
-
+#EndRegion Variables
 #Region Functions
 function GetSites() {
     $Sites = (Invoke-Restmethod -Uri "$($controller)/api/self/sites" -WebSession $myWebSession).data
@@ -208,6 +209,7 @@ function ArchiveOldAssets() {
             }
         }
     }
+    $archiveassets = $false
 }
 
 function CreateArchiveList() {
@@ -240,325 +242,346 @@ function GetFieldId($fieldname) {
 $Companies = GetCompanies
 $myWebSession = UniFiLogin
 $Sites = GetSites | Sort-Object -Property desc
+#$Sites=GetSites
 $Layouts = (Invoke-Restmethod -Uri "$($huduurl)/asset_layouts" -Headers $huduheads).asset_layouts
 
-
-#Begin the FUN!?!?!?
 foreach ($site in $Sites) {  
     $company = ($Companies | Where-Object { $($site.desc) -like "*$($_.name)*" })
     if ($company) {
         $location = SetLocation
         Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
         ################ Devices ######################
-        $archiveassets = $false
+        $templateid = GetTemplateId("Network Devices")
         $assets = GetAssets
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/stat/device" -WebSession $myWebSession).data | Where-Object { $_.adopted -eq $true }
-        foreach ($device in $devices) {
-            $templateid = GetTemplateId("Network Devices")
-            $name = SetName
-            $body = ConvertTo-Json @{
-                asset = @{
-                    asset_layout_id = $templateid
-                    name            = $name
-                    fields          = @{
-                        asset_layout_field_id = GetFieldId('Role')
-                        value                 = if ($device.type -eq "usw") { "Switch" } elseif ($device.type -eq "uap") { "Wireless" } elseif ($device.type -eq "ugw") { "Router" } else { "$($device.type)" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Manufacturer')
-                        value                 = 'Ubiquiti'
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Model')
-                        value                 = "$($device.model)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('IP Address')
-                        value                 = "$($device.ip)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('MAC Address')
-                        value                 = "$($device.mac)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Location')
-                        value                 = "$($location)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Firmware Version')
-                        value                 = "$($device.version)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Serial Number')
-                        value                 = "$($device.serial)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Management URL')
-                        value                 = "$($controller)/manage/site/$($site.name)/devices/list/1/100"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Uplink Port')
-                        value                 = if ($device.uplink.num_port -and $device.type -ne "ugw") { "Connected from Port #$($device.uplink.num_port) to " + $(if ($device.uplink.uplink_remote_port) { "Port #$($device.uplink.uplink_remote_port)" } else { "Router" }) } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Uplink Device')
-                        value                 = if ($device.uplink.uplink_mac) { GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $device.uplink.uplink_mac } )) } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Performance Statistics')
-                        value                 = "$($controller)/manage/site/$($site.name)/statistics/performance/$($device.mac)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Switch Statistics')
-                        value                 = if ($device.type -eq "usw") { "$($controller)/manage/site/$($site.name)/statistics/switch/$($device.mac)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Sync Source')
-                        value                 = "UniFi Powershell Script"
+        if ($null -ne $devices) {
+            foreach ($device in $devices) {
+                $name = SetName
+                $body = ConvertTo-Json @{
+                    asset = @{
+                        asset_layout_id = $templateid
+                        name            = $name
+                        fields          = @{
+                            asset_layout_field_id = GetFieldId('Role')
+                            value                 = if ($device.type -eq "usw") { "Switch" } elseif ($device.type -eq "uap") { "Wireless" } elseif ($device.type -eq "ugw") { "Router" } else { "$($device.type)" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Manufacturer')
+                            value                 = 'Ubiquiti'
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Model')
+                            value                 = "$($device.model)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('IP Address')
+                            value                 = "$($device.ip)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('MAC Address')
+                            value                 = "$($device.mac)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Location')
+                            value                 = "$($location)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Firmware Version')
+                            value                 = "$($device.version)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Serial Number')
+                            value                 = "$($device.serial)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Management URL')
+                            value                 = "$($controller)/manage/site/$($site.name)/devices/list/1/100"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Uplink Port')
+                            value                 = if ($device.uplink.num_port -and $device.type -ne "ugw") { "Connected from Port #$($device.uplink.num_port) to " + $(if ($device.uplink.uplink_remote_port) { "Port #$($device.uplink.uplink_remote_port)" } else { "Router" }) } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Uplink Device')
+                            value                 = if ($device.uplink.uplink_mac) { GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $device.uplink.uplink_mac } )) } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Performance Statistics')
+                            value                 = "$($controller)/manage/site/$($site.name)/statistics/performance/$($device.mac)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Switch Statistics')
+                            value                 = if ($device.type -eq "usw") { "$($controller)/manage/site/$($site.name)/statistics/switch/$($device.mac)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Sync Source')
+                            value                 = "UniFi Powershell Script"
+                            }
                         }
-                    }
-                } -Depth 6
-            $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device.serial })
-            WriteAssets
-            $archiveassets = CreateArchiveList
+                    } -Depth 6
+                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device.serial })
+                WriteAssets
+                $archiveassets = CreateArchiveList
+            }
+            ArchiveOldAssets
+        } else {
+            $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
+            ArchiveOldAssets
+            $archiveassets = $false
         }
-        ArchiveOldAssets
-        $archiveassets = $false
         ################ Networks ######################
         $templateid = GetTemplateId("Networks")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -ne "WAN" -and $_.Purpose -ne "site-vpn" }
-        if ($devices.count -eq 0) {
-            break
-        }
-        foreach ($device in $devices) {
-            $name = SetName
-            $body = ConvertTo-Json @{
-                asset = @{
-                    asset_layout_id = $templateid
-                    name            = $name
-                    fields          = @{
-                        asset_layout_field_id = GetFieldId('DHCP Server')
-                        value                 = "$($device.ip_subnet -replace '(\/\d{2})','')"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('DHCP Scope')
-                        value                 = if ($device.dhcpd_start) { "$($device.dhcpd_start) - $($device.dhcpd_stop)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('DNS Servers')
-                        value                 = "$($device.dhcpd_dns_1)" + (& { if ($device.dhcpd_dns_2) { ", $($device.dhcpd_dns_2)" } }) + (& { if ($device.dhcpd_dns_3) { ", $($device.dhcpd_dns_3)" } }) + (& { if ($device.dhcpd_dns_4) { ", $($device.dhcpd_dns_4)" } })
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Gateway')
-                        value                 = "$($device.ip_subnet -replace '(\/\d{2})','')"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('IP Address (CIDR)')
-                        value                 = "$($device.ip_subnet)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Location')
-                        value                 = "$($location)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Purpose')
-                        value                 = "$($device.purpose)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('VLAN ID')
-                        value                 = if ($device.vlan) { "$($device.vlan)" } else { '0' }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Switches')
-                        value                 = GetAttachedAssets($($assets | Where-Object { $_.fields.value -eq "Switch" -and $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location }))
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Management URL')
-                        value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Routers')
-                        value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" }))
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Sync Source')
-                        value                 = "UniFi Powershell Script"
+        if ($null -ne $devices) {
+            foreach ($device in $devices) {
+                $name = SetName
+                $body = ConvertTo-Json @{
+                    asset = @{
+                        asset_layout_id = $templateid
+                        name            = $name
+                        fields          = @{
+                            asset_layout_field_id = GetFieldId('DHCP Server')
+                            value                 = "$($device.ip_subnet -replace '(\/\d{2})','')"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('DHCP Scope')
+                            value                 = if ($device.dhcpd_start) { "$($device.dhcpd_start) - $($device.dhcpd_stop)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('DNS Servers')
+                            value                 = "$($device.dhcpd_dns_1)" + (& { if ($device.dhcpd_dns_2) { ", $($device.dhcpd_dns_2)" } }) + (& { if ($device.dhcpd_dns_3) { ", $($device.dhcpd_dns_3)" } }) + (& { if ($device.dhcpd_dns_4) { ", $($device.dhcpd_dns_4)" } })
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Gateway')
+                            value                 = "$($device.ip_subnet -replace '(\/\d{2})','')"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('IP Address (CIDR)')
+                            value                 = "$($device.ip_subnet)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Location')
+                            value                 = "$($location)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Purpose')
+                            value                 = "$($device.purpose)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('VLAN ID')
+                            value                 = if ($device.vlan) { "$($device.vlan)" } else { '0' }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Switches')
+                            value                 = GetAttachedAssets($($assets | Where-Object { $_.fields.value -eq "Switch" -and $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location }))
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Management URL')
+                            value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Routers')
+                            value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" }))
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Sync Source')
+                            value                 = "UniFi Powershell Script"
+                            }
                         }
-                    }
-                } -Depth 6
-            $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
-            WriteAssets
-            $archiveassets = CreateArchiveList
+                    } -Depth 6
+                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
+                WriteAssets
+                $archiveassets = CreateArchiveList
+            }
+            ArchiveOldAssets
+        } else {
+            $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
+            ArchiveOldAssets
+            $archiveassets = $false
         }
-        ArchiveOldAssets
-        $archiveassets = $false
         ################ WiFi ######################
         $templateid = GetTemplateId("Wireless")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/wlanconf/" -WebSession $myWebSession).data
-        foreach ($device in $devices) {
-            $name = SetName
-            $body = ConvertTo-Json @{
-                asset = @{
-                    asset_layout_id = $templateid
-                    name            = $name
-                    fields          = @{
-                        asset_layout_field_id = GetFieldId('Network SSID')
-                        value                 = "$($device.name)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Hidden Network?')
-                        value                 = if ($device.hide_ssid) { "$($device.hide_ssid)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Guest Network?')
-                        value                 = if ($device.is_guest) { "$($device.is_guest)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Security Mode')
-                        value                 = "$($device.security)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('WPA Mode')
-                        value                 = "$($device.wpa_mode)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('WPA Encryption')
-                        value                 = "$($device.wpa_enc)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Passphrase / Network Key')
-                        value                 = "$($device.x_passphrase)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('VLAN')
-                        value                 = if ($device.vlan_enabled) { "$($device.vlan)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Schedule')
-                        value                 = if ($device.schedule) { "$($device.schedule -join '<br>')" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Associated Access Points')
-                        value                 = GetAttachedAssets($($assets | Where-Object { $_.fields.value -eq "Wireless" -and $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location }))
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Location')
-                        value                 = "$($location)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Management URL')
-                        value                 = "$($controller)/manage/site/$($site.name)/settings/wlans/$($device.wlangroup_id)/edit/$($device._id)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Networks')
-                        value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Networks")) -and $_.fields.value -eq $location -and $_.fields.value -eq $device.vlan }))
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Sync Source')
-                        value                 = "UniFi Powershell Script"
+        if ($null -ne $devices) {
+            foreach ($device in $devices) {
+                $name = SetName
+                $body = ConvertTo-Json @{
+                    asset = @{
+                        asset_layout_id = $templateid
+                        name            = $name
+                        fields          = @{
+                            asset_layout_field_id = GetFieldId('Network SSID')
+                            value                 = "$($device.name)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Hidden Network?')
+                            value                 = if ($device.hide_ssid) { "$($device.hide_ssid)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Guest Network?')
+                            value                 = if ($device.is_guest) { "$($device.is_guest)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Security Mode')
+                            value                 = "$($device.security)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('WPA Mode')
+                            value                 = "$($device.wpa_mode)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('WPA Encryption')
+                            value                 = "$($device.wpa_enc)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Passphrase / Network Key')
+                            value                 = "$($device.x_passphrase)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('VLAN')
+                            value                 = if ($device.vlan_enabled) { "$($device.vlan)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Schedule')
+                            value                 = if ($device.schedule) { "$($device.schedule -join '<br>')" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Associated Access Points')
+                            value                 = GetAttachedAssets($($assets | Where-Object { $_.fields.value -eq "Wireless" -and $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location }))
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Location')
+                            value                 = "$($location)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Management URL')
+                            value                 = "$($controller)/manage/site/$($site.name)/settings/wlans/$($device.wlangroup_id)/edit/$($device._id)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Networks')
+                            value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Networks")) -and $_.fields.value -eq $location -and $_.fields.value -eq $device.vlan }))
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Sync Source')
+                            value                 = "UniFi Powershell Script"
+                            }
                         }
-                    }
-                } -Depth 6
-            $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
-            WriteAssets
-            $archiveassets = CreateArchiveList
+                    } -Depth 6
+                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
+                WriteAssets
+                $archiveassets = CreateArchiveList
+            }
+            ArchiveOldAssets
+            
+        } else {
+            $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
+            ArchiveOldAssets
+            $archiveassets = $false
         }
-        ArchiveOldAssets
-        $archiveassets = $false
         ################ Internet ######################
         $templateid = GetTemplateId("Internet")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -eq "WAN" }
-        foreach ($device in $devices) {
-            $name = SetName
-            $router = ($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" })
-            $routerip = ($router | ConvertTo-Json | select-string -Pattern $regex | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })
-            if ($device.wan_type -match 'static') {
-                $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
-            }
-            elseif ($routerip) {
-                $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($routerip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
-            }
-            else {
-                $inetinfo = "Unknown"
-            }
-            $body = ConvertTo-Json @{
-                asset = @{
-                    asset_layout_id = $templateid
-                    name            = $name
-                    fields          = @{
-                        asset_layout_field_id = GetFieldId('IP Address (v4)')
-                        value                 = if ($device.wan_type -match 'static') { "$($device.wan_ip)" } else { "$routerip" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Subnet Mask (v4)')
-                        value                 = if ($device.wan_type -match 'static') { "$($device.wan_netmask)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Gateway (v4)')
-                        value                 = if ($device.wan_type -match 'static') { "$($device.wan_gateway)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Provider')
-                        value                 = "$($inetinfo)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('VLAN')
-                        value                 = if (($device.wan_type -match 'static') -and ($device.wan_vlan_enabled -eq $true)) { "$($device.wan_vlan)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Address Type (v4)')
-                        value                 = "$($device.wan_type)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Router')
-                        value                 = "$($router.id)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Location')
-                        value                 = "$($location)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Management URL')
-                        value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Port')
-                        value                 = "$($device.wan_networkgroup)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Latest Speed Test Result')
-                        value                 = GetSpeedTest
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Speed Test History')
-                        value                 = "$($controller)/manage/site/$($site.name)/statistics/speedtest/last_week"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Sync Source')
-                        value                 = "UniFi Powershell Script"
+        if ($null -ne $devices) {
+            foreach ($device in $devices) {
+                $name = SetName
+                $router = ($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" })
+                $routerip = ($router | ConvertTo-Json | select-string -Pattern $regex | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })
+                if ($device.wan_type -match 'static') {
+                    $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
+                }
+                elseif ($routerip) {
+                    $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($routerip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
+                }
+                else {
+                    $inetinfo = "Unknown"
+                }
+                $body = ConvertTo-Json @{
+                    asset = @{
+                        asset_layout_id = $templateid
+                        name            = $name
+                        fields          = @{
+                            asset_layout_field_id = GetFieldId('IP Address (v4)')
+                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_ip)" } else { "$routerip" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Subnet Mask (v4)')
+                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_netmask)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Gateway (v4)')
+                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_gateway)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Provider')
+                            value                 = "$($inetinfo)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('VLAN')
+                            value                 = if (($device.wan_type -match 'static') -and ($device.wan_vlan_enabled -eq $true)) { "$($device.wan_vlan)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Address Type (v4)')
+                            value                 = "$($device.wan_type)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Router')
+                            value                 = "$($router.id)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Location')
+                            value                 = "$($location)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Management URL')
+                            value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Port')
+                            value                 = "$($device.wan_networkgroup)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Latest Speed Test Result')
+                            value                 = GetSpeedTest
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Speed Test History')
+                            value                 = "$($controller)/manage/site/$($site.name)/statistics/speedtest/last_week"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Sync Source')
+                            value                 = "UniFi Powershell Script"
+                            }
                         }
-                    }
-                } -Depth 6
-            $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
-            WriteAssets
-            $archiveassets = CreateArchiveList
+                    } -Depth 6
+                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
+                WriteAssets
+                $archiveassets = CreateArchiveList
+            }
+            ArchiveOldAssets
+        } else {
+            $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
+            ArchiveOldAssets
+            $archiveassets = $false
         }
-        ArchiveOldAssets
-        $archiveassets = $false
         ################ VPN ######################
         $templateid = GetTemplateId("VPNs")
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -eq "site-vpn" }
-        foreach ($device in $devices) {
-            $name = SetName
-            $body = ConvertTo-Json @{
-                asset = @{
-                    asset_layout_id = $templateid
-                    name            = $name
-                    fields          = @{
-                        asset_layout_field_id = GetFieldId('Remote Endpoint')
-                        value                 = if ($device.ipsec_peer_ip) { "$($device.ipsec_peer_ip)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Local Endpoint')
-                        value                 = if ($device.ipsec_local_ip) { "$($device.ipsec_local_ip)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Remote Network(s)')
-                        value                 = if ($device.remote_vpn_subnets) { "$($device.remote_vpn_subnets -join '<br>')" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('IKE Version')
-                        value                 = if ($device.ipsec_key_exchange) { "$($device.ipsec_key_exchange)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Devices Associated')
-                        value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" }))
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Location')
-                        value                 = "$($location)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Management URL')
-                        value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Encryption')
-                        value                 = if ($device.ipsec_encryption) { "$($device.ipsec_encryption)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Hash')
-                        value                 = if ($device.ipsec_hash) { "$($device.ipsec_hash)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('PFS')
-                        value                 = if ($device.ipsec_pfs) { "$($device.ipsec_pfs)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('VTI?')
-                        value                 = if ($device.ipsec_dynamic_routing) { "$($device.ipsec_dynamic_routing)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('DH Group (Phase 1)')
-                        value                 = if ($device.ipsec_ike_dh_group) { "$($device.ipsec_ike_dh_group)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('DH Group (Phase 2)')
-                        value                 = if ($device.ipsec_esp_dh_group) { "$($device.ipsec_esp_dh_group)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Pre-Shared Key')
-                        value                 = if ($device.x_ipsec_pre_shared_key) { "$($device.x_ipsec_pre_shared_key)" } else { "" }
-                        }, @{
-                        asset_layout_field_id = GetFieldId('Sync Source')
-                        value                 = "UniFi Powershell Script"
+        if ($null -ne $devices) {
+            foreach ($device in $devices) {
+                $name = SetName
+                $body = ConvertTo-Json @{
+                    asset = @{
+                        asset_layout_id = $templateid
+                        name            = $name
+                        fields          = @{
+                            asset_layout_field_id = GetFieldId('Remote Endpoint')
+                            value                 = if ($device.ipsec_peer_ip) { "$($device.ipsec_peer_ip)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Local Endpoint')
+                            value                 = if ($device.ipsec_local_ip) { "$($device.ipsec_local_ip)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Remote Network(s)')
+                            value                 = if ($device.remote_vpn_subnets) { "$($device.remote_vpn_subnets -join '<br>')" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('IKE Version')
+                            value                 = if ($device.ipsec_key_exchange) { "$($device.ipsec_key_exchange)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Devices Associated')
+                            value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" }))
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Location')
+                            value                 = "$($location)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Management URL')
+                            value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Encryption')
+                            value                 = if ($device.ipsec_encryption) { "$($device.ipsec_encryption)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Hash')
+                            value                 = if ($device.ipsec_hash) { "$($device.ipsec_hash)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('PFS')
+                            value                 = if ($device.ipsec_pfs) { "$($device.ipsec_pfs)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('VTI?')
+                            value                 = if ($device.ipsec_dynamic_routing) { "$($device.ipsec_dynamic_routing)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('DH Group (Phase 1)')
+                            value                 = if ($device.ipsec_ike_dh_group) { "$($device.ipsec_ike_dh_group)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('DH Group (Phase 2)')
+                            value                 = if ($device.ipsec_esp_dh_group) { "$($device.ipsec_esp_dh_group)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Pre-Shared Key')
+                            value                 = if ($device.x_ipsec_pre_shared_key) { "$($device.x_ipsec_pre_shared_key)" } else { "" }
+                            }, @{
+                            asset_layout_field_id = GetFieldId('Sync Source')
+                            value                 = "UniFi Powershell Script"
+                            }
                         }
-                    }
-                } -Depth 6
-            $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
-            WriteAssets
-            $archiveassets = CreateArchiveList
+                    } -Depth 6
+                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
+                WriteAssets
+                $archiveassets = CreateArchiveList
+            }
+            ArchiveOldAssets
+        } else {
+            $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
+            ArchiveOldAssets
+            $archiveassets = $false
         }
-        ArchiveOldAssets
-        $archiveassets = $false
         ################ Firewall ######################
         [int]$templateid = GetTemplateId("Firewall")
         $body = ConvertTo-Json @{
