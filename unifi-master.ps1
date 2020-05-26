@@ -41,7 +41,7 @@ function GetPortForwards() {
     $forwards = New-Object System.Collections.Generic.List[System.Object]
 
     foreach ($pforward in $pforwards) {
-        $forwards += "<b>Rule</b>$($pforward.name) : $(if ($pforward.enabled -ne $true) {"<strike>"})$(if ($pforward.src) {"$($pforward.src):"})$($pforward.dst_port)/$($pforward.proto) to $($pforward.fwd):$($pforward.fwd_port)/$($pforward.proto) $(if ($pforward.enabled -ne $true) {"</strike>"})<br>"
+        $forwards += "<b>Rule</b>$($pforward.name) - $(if ($pforward.enabled -ne $true) {"<strike>"})$(if ($pforward.src) {"$($pforward.src):"})$($pforward.dst_port)/$($pforward.proto) to $($pforward.fwd):$($pforward.fwd_port)/$($pforward.proto) $(if ($pforward.enabled -ne $true) {"</strike>"})<br>"
     }
     return "$forwards"
 }
@@ -159,8 +159,6 @@ function WriteAssets() {
             if ($body.asset.fields) {
                 try {
                     Write-Host "Updating $($company.name) $name"
-                    $oldasset | ConvertTo-Json -Depth 5 | Out-File -Append -FilePath "./updates.old.log" -Encoding UTF8 
-                    $body | ConvertTo-Json -Depth 5 | Out-File -Append -FilePath "./updates.new.log" -Encoding UTF8 
                     (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets/$($oldassets.id)" -Method PUT -Headers  $huduheads -Body $($body | ConvertTo-Json -depth 6)).data
                 }
                 catch {
