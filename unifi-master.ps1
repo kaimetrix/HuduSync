@@ -69,7 +69,7 @@ function GetCompanies() {
     $i = 1
     $Companies = New-Object System.Collections.Generic.List[System.Object]
     while ($i -lt 9999) {
-        $newcomps = ((Invoke-Restmethod -Uri "$($huduurl)/companies?page=$i" -Headers $huduheads).companies)
+        $newcomps = ((Invoke-Restmethod -Uri "$($huduurl)/companies?page=$i&page_size=100" -Headers $huduheads).companies)
         $i++
         if ($newcomps.count -eq 0) {
             break
@@ -84,7 +84,7 @@ function GetAssets() {
     $assets = New-Object System.Collections.Generic.List[System.Object]
     while ($i -lt 9999) {
         try {
-            $newassets = (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets?page=$i" -Headers $huduheads)
+            $newassets = (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets?page=$i&page_size=500" -Headers $huduheads)
             if ($null -ne $newassets -and $newassets.assets.count -eq 0) {
                 $newassets = $newassets | ConvertFrom-Json -AsHashTable
             }
@@ -102,8 +102,9 @@ function GetAssets() {
 }
 
 function WriteAssets() {
+    $body.asset.fields = $body.asset.fields | Where-Object { $null -ne $oldasset.fields.value }
     if ($name -notmatch "element-") {
-        if ($oldassets.count -gt 1) {
+        if ($oldassets.count -gt 1 -and $oldassets[0].fields) {
             foreach ($oldasset in $oldassets) {
                 try {
                     (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets/$($oldasset.id)" -Method DELETE -Headers $huduheads).data                           
@@ -115,47 +116,64 @@ function WriteAssets() {
             }
             try {
                 Write-Host "Re-Creating $name"
-                (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets" -Method POST -Headers $huduheads -Body $body).data
+                (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets" -Method POST -Headers    $huduheads -Body $($body | ConvertTo-Json -depth 6)).data
             }
             catch {
                 $_.Exception.Message
                 "$($huduurl)/companies/$($company.id)/assets"
-                $body
+                $body | ConvertTo-Json -Depth 5
             }
         }
         elseif ($oldassets) {
-            $tempbody = New-Object System.Collections.Generic.List[System.Object]
-            ($body | ConvertFrom-Json).asset.fields.value |
+            if ($oldassets[0].fields) {
+                $oldasset = $oldassets | Select-Object -First 1
+            }
+ else {
+                $oldasset = $oldassets
+            }
+            $body.asset.fields |
                 ForEach-Object {
-                    if ($_ -notmatch '/a/') {
-                        if ($oldassets.fields.value -notcontains $_) {
-                            $tempbody += $_
-                            }
+                    if ($_.value -notmatch '/a/') {
+                        if ( $oldasset.fields.value -contains $_.value -or $null -eq $_.value) {
+                            $asset_layout_field_id = $_.asset_layout_field_id
+                            $body.asset.fields = [array]($body.asset.fields | Where-Object { $_.asset_layout_field_id -ne $asset_layout_field_id })
+                        }
                     }
                     else {
-                        $_ | ConvertFrom-Json | ForEach-Object {
-                            if (($oldassets.fields.value | Where-Object { $_ -match '/a/' } | ConvertFrom-Json).id -notcontains $_.id ) {
-                                $tempbody += $_[0]
+                        $tempbody = 0
+                        $_.value | ForEach-Object {
+                            if (($oldasset.fields.value | Where-Object { $_ -match '/a/' } | ConvertFrom-Json).id -notcontains $_.id ) {
+                                $tempbody ++
                                 }
+                        }
+                        if ($tempbody -eq 0 ) {
+                            $asset_layout_field_id = $_.asset_layout_field_id
+                            $body.asset.fields = [array]($body.asset.fields | Where-Object { $_.asset_layout_field_id -ne $asset_layout_field_id })
                         }
                     }
                 }
-            if ($tempbody.count -gt 0) {
+            if ($null -eq $body.asset.fields) {
+                $body.asset = $body.asset | Select-Object -Property * -ExcludeProperty fields
+            }
+            if ($body.asset.fields) {
                 try {
                     Write-Host "Updating $($company.name) $name"
-                    (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets/$($oldassets.id)" -Method PUT -Headers $huduheads -Body $body).data
+                    $oldasset | ConvertTo-Json -Depth 5 | Out-File -Append -FilePath "./updates.old.log" -Encoding UTF8 
+                    $body | ConvertTo-Json -Depth 5 | Out-File -Append -FilePath "./updates.new.log" -Encoding UTF8 
+                    (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets/$($oldassets.id)" -Method PUT -Headers  $huduheads -Body $($body | ConvertTo-Json -depth 6)).data
                 }
                 catch {
                     $_.Exception.Message
                     "$($huduurl)/companies/$($company.id)/assets/$($oldassets.id)"
-                    $body
+                    $body | ConvertTo-Json -Depth 5
                 }
             }
         }
         else {
             try {
                 Write-Host "Creating $name"
-                (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets" -Method POST -Headers $huduheads -Body $body).data
+                $body | Out-File -Append -FilePath "./updates.creates.log" -Encoding UTF8 
+                (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets" -Method POST -Headers  $huduheads -Body $($body | ConvertTo-Json -depth 6)).data
             }
             catch {
                 $_.Exception.Message
@@ -247,7 +265,7 @@ foreach ($site in $Sites) {
     $company = ($Companies | Where-Object { $($site.desc) -like "*$($_.name)*" })
     if ($company) {
         $location = SetLocation
-        Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
+        #Write-Host "Match Found for UNIFI: $($site.desc) to HUDU:$($company.name) LOCATION:$($location)"
         #Region Network Devices
         ################ Devices ######################
         $templateid = GetTemplateId("Network Devices")
@@ -256,7 +274,7 @@ foreach ($site in $Sites) {
         if ($null -ne $devices) {
             foreach ($device in $devices) {
                 $name = SetName
-                $body = ConvertTo-Json @{
+                $body = @{
                     asset = @{
                         asset_layout_id = $templateid
                         name            = $name
@@ -289,28 +307,29 @@ foreach ($site in $Sites) {
                             value                 = "$($controller)/manage/site/$($site.name)/devices/list/1/100"
                             }, @{
                             asset_layout_field_id = GetFieldId('Uplink Port')
-                            value                 = if ($device.uplink.num_port -and $device.type -ne "ugw") { "Connected from Port #$($device.uplink.num_port) to " + $(if ($device.uplink.uplink_remote_port) { "Port #$($device.uplink.uplink_remote_port)" } else { "Router" }) } else { "" }
+                            value                 = if ($device.uplink.num_port -and $device.type -ne "ugw") { "Connected from Port #$($device.uplink.num_port) to " + $(if ($device.uplink.uplink_remote_port) { "Port #$($device.uplink.uplink_remote_port)" } else { "Router" }) } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Uplink Device')
-                            value                 = if ($device.uplink.uplink_mac) { GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $device.uplink.uplink_mac } )) } else { "" }
+                            value                 = if ($device.uplink.uplink_mac) { GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $device.uplink.uplink_mac } )) } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Performance Statistics')
                             value                 = "$($controller)/manage/site/$($site.name)/statistics/performance/$($device.mac)"
                             }, @{
                             asset_layout_field_id = GetFieldId('Switch Statistics')
-                            value                 = if ($device.type -eq "usw") { "$($controller)/manage/site/$($site.name)/statistics/switch/$($device.mac)" } else { "" }
+                            value                 = if ($device.type -eq "usw") { "$($controller)/manage/site/$($site.name)/statistics/switch/$($device.mac)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Sync Source')
                             value                 = "UniFi Powershell Script"
                             }
                         }
-                    } -Depth 6
+                    }
                 $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device.serial })
                 WriteAssets
                 $archiveassets = CreateArchiveList
             }
             ArchiveOldAssets
-        } else {
+        }
+ else {
             $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
             ArchiveOldAssets
             $archiveassets = $false
@@ -323,7 +342,7 @@ foreach ($site in $Sites) {
         if ($null -ne $devices) {
             foreach ($device in $devices) {
                 $name = SetName
-                $body = ConvertTo-Json @{
+                $body = @{
                     asset = @{
                         asset_layout_id = $templateid
                         name            = $name
@@ -332,7 +351,7 @@ foreach ($site in $Sites) {
                             value                 = "$($device.ip_subnet -replace '(\/\d{2})','')"
                             }, @{
                             asset_layout_field_id = GetFieldId('DHCP Scope')
-                            value                 = if ($device.dhcpd_start) { "$($device.dhcpd_start) - $($device.dhcpd_stop)" } else { "" }
+                            value                 = if ($device.dhcpd_start) { "$($device.dhcpd_start) - $($device.dhcpd_stop)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('DNS Servers')
                             value                 = "$($device.dhcpd_dns_1)" + (& { if ($device.dhcpd_dns_2) { ", $($device.dhcpd_dns_2)" } }) + (& { if ($device.dhcpd_dns_3) { ", $($device.dhcpd_dns_3)" } }) + (& { if ($device.dhcpd_dns_4) { ", $($device.dhcpd_dns_4)" } })
@@ -365,13 +384,14 @@ foreach ($site in $Sites) {
                             value                 = "UniFi Powershell Script"
                             }
                         }
-                    } -Depth 6
+                    }
                 $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 WriteAssets
                 $archiveassets = CreateArchiveList
             }
             ArchiveOldAssets
-        } else {
+        }
+ else {
             $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
             ArchiveOldAssets
             $archiveassets = $false
@@ -384,7 +404,7 @@ foreach ($site in $Sites) {
         if ($null -ne $devices) {
             foreach ($device in $devices) {
                 $name = SetName
-                $body = ConvertTo-Json @{
+                $body = @{
                     asset = @{
                         asset_layout_id = $templateid
                         name            = $name
@@ -393,10 +413,10 @@ foreach ($site in $Sites) {
                             value                 = "$($device.name)"
                             }, @{
                             asset_layout_field_id = GetFieldId('Hidden Network?')
-                            value                 = if ($device.hide_ssid) { "$($device.hide_ssid)" } else { "" }
+                            value                 = if ($device.hide_ssid) { "$($device.hide_ssid)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Guest Network?')
-                            value                 = if ($device.is_guest) { "$($device.is_guest)" } else { "" }
+                            value                 = if ($device.is_guest) { "$($device.is_guest)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Security Mode')
                             value                 = "$($device.security)"
@@ -411,10 +431,10 @@ foreach ($site in $Sites) {
                             value                 = "$($device.x_passphrase)"
                             }, @{
                             asset_layout_field_id = GetFieldId('VLAN')
-                            value                 = if ($device.vlan_enabled) { "$($device.vlan)" } else { "" }
+                            value                 = if ($device.vlan_enabled) { "$($device.vlan)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Schedule')
-                            value                 = if ($device.schedule) { "$($device.schedule -join '<br>')" } else { "" }
+                            value                 = if ($device.schedule) { "$($device.schedule -join '<br>')" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Associated Access Points')
                             value                 = GetAttachedAssets($($assets | Where-Object { $_.fields.value -eq "Wireless" -and $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location }))
@@ -432,14 +452,15 @@ foreach ($site in $Sites) {
                             value                 = "UniFi Powershell Script"
                             }
                         }
-                    } -Depth 6
+                    }
                 $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 WriteAssets
                 $archiveassets = CreateArchiveList
             }
             ArchiveOldAssets
             
-        } else {
+        }
+ else {
             $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
             ArchiveOldAssets
             $archiveassets = $false
@@ -463,7 +484,7 @@ foreach ($site in $Sites) {
                 else {
                     $inetinfo = "Unknown"
                 }
-                $body = ConvertTo-Json @{
+                $body = @{
                     asset = @{
                         asset_layout_id = $templateid
                         name            = $name
@@ -472,22 +493,22 @@ foreach ($site in $Sites) {
                             value                 = if ($device.wan_type -match 'static') { "$($device.wan_ip)" } else { "$routerip" }
                             }, @{
                             asset_layout_field_id = GetFieldId('Subnet Mask (v4)')
-                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_netmask)" } else { "" }
+                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_netmask)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Gateway (v4)')
-                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_gateway)" } else { "" }
+                            value                 = if ($device.wan_type -match 'static') { "$($device.wan_gateway)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Provider')
                             value                 = "$($inetinfo)"
                             }, @{
                             asset_layout_field_id = GetFieldId('VLAN')
-                            value                 = if (($device.wan_type -match 'static') -and ($device.wan_vlan_enabled -eq $true)) { "$($device.wan_vlan)" } else { "" }
+                            value                 = if (($device.wan_type -match 'static') -and ($device.wan_vlan_enabled -eq $true)) { "$($device.wan_vlan)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Address Type (v4)')
                             value                 = "$($device.wan_type)"
                             }, @{
                             asset_layout_field_id = GetFieldId('Router')
-                            value                 = "$($router.id)"
+                            value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" }))
                             }, @{
                             asset_layout_field_id = GetFieldId('Location')
                             value                 = "$($location)"
@@ -508,13 +529,14 @@ foreach ($site in $Sites) {
                             value                 = "UniFi Powershell Script"
                             }
                         }
-                    } -Depth 6
+                    }
                 $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 WriteAssets
                 $archiveassets = CreateArchiveList
             }
             ArchiveOldAssets
-        } else {
+        }
+ else {
             $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
             ArchiveOldAssets
             $archiveassets = $false
@@ -527,22 +549,22 @@ foreach ($site in $Sites) {
         if ($null -ne $devices) {
             foreach ($device in $devices) {
                 $name = SetName
-                $body = ConvertTo-Json @{
+                $body = @{
                     asset = @{
                         asset_layout_id = $templateid
                         name            = $name
                         fields          = @{
                             asset_layout_field_id = GetFieldId('Remote Endpoint')
-                            value                 = if ($device.ipsec_peer_ip) { "$($device.ipsec_peer_ip)" } else { "" }
+                            value                 = if ($device.ipsec_peer_ip) { "$($device.ipsec_peer_ip)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Local Endpoint')
-                            value                 = if ($device.ipsec_local_ip) { "$($device.ipsec_local_ip)" } else { "" }
+                            value                 = if ($device.ipsec_local_ip) { "$($device.ipsec_local_ip)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Remote Network(s)')
-                            value                 = if ($device.remote_vpn_subnets) { "$($device.remote_vpn_subnets -join '<br>')" } else { "" }
+                            value                 = if ($device.remote_vpn_subnets) { "$($device.remote_vpn_subnets -join '<br>')" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('IKE Version')
-                            value                 = if ($device.ipsec_key_exchange) { "$($device.ipsec_key_exchange)" } else { "" }
+                            value                 = if ($device.ipsec_key_exchange) { "$($device.ipsec_key_exchange)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Devices Associated')
                             value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" }))
@@ -554,37 +576,38 @@ foreach ($site in $Sites) {
                             value                 = "$($controller)/manage/site/$($site.name)/settings/networks/edit/$($device._id)"
                             }, @{
                             asset_layout_field_id = GetFieldId('Encryption')
-                            value                 = if ($device.ipsec_encryption) { "$($device.ipsec_encryption)" } else { "" }
+                            value                 = if ($device.ipsec_encryption) { "$($device.ipsec_encryption)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Hash')
-                            value                 = if ($device.ipsec_hash) { "$($device.ipsec_hash)" } else { "" }
+                            value                 = if ($device.ipsec_hash) { "$($device.ipsec_hash)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('PFS')
-                            value                 = if ($device.ipsec_pfs) { "$($device.ipsec_pfs)" } else { "" }
+                            value                 = if ($device.ipsec_pfs) { "$($device.ipsec_pfs)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('VTI?')
-                            value                 = if ($device.ipsec_dynamic_routing) { "$($device.ipsec_dynamic_routing)" } else { "" }
+                            value                 = if ($device.ipsec_dynamic_routing) { "$($device.ipsec_dynamic_routing)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('DH Group (Phase 1)')
-                            value                 = if ($device.ipsec_ike_dh_group) { "$($device.ipsec_ike_dh_group)" } else { "" }
+                            value                 = if ($device.ipsec_ike_dh_group) { "$($device.ipsec_ike_dh_group)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('DH Group (Phase 2)')
-                            value                 = if ($device.ipsec_esp_dh_group) { "$($device.ipsec_esp_dh_group)" } else { "" }
+                            value                 = if ($device.ipsec_esp_dh_group) { "$($device.ipsec_esp_dh_group)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Pre-Shared Key')
-                            value                 = if ($device.x_ipsec_pre_shared_key) { "$($device.x_ipsec_pre_shared_key)" } else { "" }
+                            value                 = if ($device.x_ipsec_pre_shared_key) { "$($device.x_ipsec_pre_shared_key)" } else { $null }
                             }, @{
                             asset_layout_field_id = GetFieldId('Sync Source')
                             value                 = "UniFi Powershell Script"
                             }
                         }
-                    } -Depth 6
+                    }
                 $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 WriteAssets
                 $archiveassets = CreateArchiveList
             }
             ArchiveOldAssets
-        } else {
+        }
+ else {
             $archiveassets = $assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $location -and $_.fields.value -match "Powershell Script" }
             ArchiveOldAssets
             $archiveassets = $false
@@ -593,7 +616,7 @@ foreach ($site in $Sites) {
         #Region Firewall
         ################ Firewall ######################
         [int]$templateid = GetTemplateId("Firewall")
-        $body = ConvertTo-Json @{
+        $body = @{
             asset = @{
                 asset_layout_id = $templateid
                 name            = $location
@@ -602,7 +625,7 @@ foreach ($site in $Sites) {
                     value                 = GetPortForwards
                     }, @{
                     asset_layout_field_id = GetFieldId('Modules')
-                    value                 = "$(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/get/setting/usg" -WebSession $myWebSession).data)) {$rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('key');$rule.PSObject.properties.remove('site_id');(($rule | Convertto-Json -depth 5) -replace ',','<br>' -replace '([\{\}\"\[\]])','' -replace '_',' ' )})"
+                    value                 = "$($(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/get/setting/usg" -WebSession $myWebSession).data)) {$rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('key');$rule.PSObject.properties.remove('site_id');(($rule | Convertto-Json -depth 5) -replace ',','<br>' -replace '([\{\}\"\[\]])','' -replace '_',' ' )}) -replace '\r','')"
                     }, @{
                     asset_layout_field_id = GetFieldId('Location')
                     value                 = "$($location)"
@@ -614,7 +637,7 @@ foreach ($site in $Sites) {
                     value                 = GetAttachedAssets($($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Internet")) -and $_.fields.value -eq $location }))
                     }, @{
                     asset_layout_field_id = GetFieldId('Firewall Rules')
-                    value                 = "$(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/firewallrule" -WebSession $myWebSession).data)) {"<b>Rule $($rule.rule_index)</b>" + $rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('site_id');$rule.PSObject.properties.remove('rule_index');(($rule | Convertto-Json -depth 5) -replace ',','<br>' -replace '([\{\}\"\[\]])','' -replace '_',' ' ) + "<br><br>"})"
+                    value                 = "$($(foreach ($rule in $((Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/firewallrule" -WebSession $myWebSession).data)) {"<b>Rule $($rule.rule_index)</b>" + $rule.PSObject.properties.remove('_id');$rule.PSObject.properties.remove('site_id');$rule.PSObject.properties.remove('rule_index');(($rule | Convertto-Json -depth 5) -replace ',','<br>' -replace '([\{\}\"\[\]])','' -replace '_',' ' ) + "<br><br>"}) -replace '\r','')"
                     }, @{
                     asset_layout_field_id = GetFieldId('Management URL')
                     value                 = "$($controller)/manage/site/$($site.name)/settings/routing/list"
@@ -623,7 +646,7 @@ foreach ($site in $Sites) {
                     value                 = "UniFi Powershell Script"
                     }
                 }
-            } -Depth 6
+            }
         $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $site.name })
         WriteAssets
         #EndRegion Firewall
