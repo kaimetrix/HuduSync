@@ -57,7 +57,8 @@ function GetSpeedTest() {
     } | convertTo-Json
     $test = (Invoke-Restmethod -Uri "$($controller)/api/s/$($site.name)/stat/report/archive.speedtest" -WebSession $myWebSession -Method POST -ContentType "application/json" -Body $body).data[0]
     if ($test.xput_download -gt 1) {
-        $stest = "DL $([math]::Round($test.xput_download,2)) Mbps / UL $([math]::Round($test.xput_upload,2)) Mbps<br>Latency $($test.latency) ms<br>Performed: $($(Get-Date -Day 1 -Month 1 -Year 1970).AddMilliseconds($test.time))"
+        $testdate = Get-Date (New-Object System.DateTime (1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)).AddMilliseconds($test.time) -Format "MM-dd-yyyy HH:mm"
+        $stest = "DL $([math]::Round($test.xput_download,2)) Mbps / UL $([math]::Round($test.xput_upload,2)) Mbps<br>Latency $($test.latency) ms<br>Performed: $testdate"
     }
     else {
         $stest = "No recent test available."
