@@ -616,10 +616,11 @@ foreach ($site in $Sites) {
         #Region Firewall
         ################ Firewall ######################
         [int]$templateid = GetTemplateId("Firewall")
+        $name = "$location Firewall"
         $body = @{
             asset = @{
                 asset_layout_id = $templateid
-                name            = $location
+                name            = $name
                 fields          = @{
                     asset_layout_field_id = GetFieldId('Port Forwards')
                     value                 = GetPortForwards
