@@ -94,7 +94,7 @@ function GetAssets() {
             $newassets > $null
         }
         $assets += $newassets.assets
-        if ($($newassets.assets).count -lt 25) {
+        if ($($newassets.assets).count -lt 500) {
             break
         }
         $i++
