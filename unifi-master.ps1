@@ -41,7 +41,7 @@ function GetPortForwards() {
     $forwards = New-Object System.Collections.Generic.List[System.Object]
 
     foreach ($pforward in $pforwards) {
-        $forwards += "<b>Rule</b>: $($pforward.name) : Forwarding $($pforward.src):$($pforward.dst_port) to $($pforward.fwd):$($pforward.fwd_port) using $($pforward.proto) currently $(if ($pforward.enabled -eq $true) {"Enabled"} else {"Disabled"})<br>"
+        $forwards += "<b>Rule</b>$($pforward.name) : $(if ($pforward.enabled -ne $true) {"<strike>"})$(if ($pforward.src) {"$($pforward.src):"})$($pforward.dst_port)/$($pforward.proto) to $($pforward.fwd):$($pforward.fwd_port)/$($pforward.proto) $(if ($pforward.enabled -ne $true) {"</strike>"})<br>"
     }
     return "$forwards"
 }
@@ -617,7 +617,7 @@ foreach ($site in $Sites) {
         #Region Firewall
         ################ Firewall ######################
         [int]$templateid = GetTemplateId("Firewall")
-        $name = "$location Firewall"
+        $name = "$location - Firewall"
         $body = @{
             asset = @{
                 asset_layout_id = $templateid
