@@ -6,8 +6,8 @@ The sync script WILL FAIL if any field names or types are different then the tem
 <b>TO DO:<br></b>
 
 [X] Compare existing assets with info in script and only update if different.<br>
-[] Shrink number of hits to IP Info by checking if info is needed before doing update<br>
-[] Correct GetAssets to be faster<br>
+[X] Shrink number of hits to IP Info by checking if info is needed before doing update<br>
+[X]ish Correct GetAssets to be faster, new update by HUDU allows the Asset pulls to be as long as you want.  Speeds it up quite a bit to go from 25 per GET to 500 per GET (not API limited), still plan to use filtered Asset pulls once those are available.<br>
 [] More documentation?<br>
 [] Port map for switches... this is a moon shot but i'll think of something... any ideas are appreciated. <br><br>
 
