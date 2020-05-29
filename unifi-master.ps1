@@ -337,7 +337,7 @@ foreach ($site in $Sites) {
         #Region Networks
         ################ Networks ######################
         $templateid = GetTemplateId("Networks")
-        $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -ne "WAN" -and $_.Purpose -ne "site-vpn" }
+        $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -ne "WAN" -and $_.Purpose -notmatch "vpn" }
         if ($null -ne $devices) {
             foreach ($device in $devices) {
                 $name = SetName
@@ -471,17 +471,22 @@ foreach ($site in $Sites) {
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -eq "WAN" }
         if ($null -ne $devices) {
             foreach ($device in $devices) {
+                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 $name = SetName
                 $router = ($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" })
                 $routerip = ($router | ConvertTo-Json | select-string -Pattern $regex | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })
-                if ($device.wan_type -match 'static') {
-                    $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
-                }
-                elseif ($routerip) {
-                    $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($routerip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
-                }
-                else {
-                    $inetinfo = "Unknown"
+                if ($oldassets.fields.value -notmatch $device.wan_ip -and $oldassets.fields.value -notmatch $device.wan_ip) {
+                    if ($device.wan_type -match 'static') {
+                        $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
+                    }
+                    elseif ($routerip) {
+                        $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($routerip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
+                    }
+                    else {
+                        $inetinfo = "Unknown"
+                    }
+                } else {
+                    $inetinfo = $null
                 }
                 $body = @{
                     asset = @{
@@ -529,7 +534,6 @@ foreach ($site in $Sites) {
                             }
                         }
                     }
-                $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 WriteAssets
                 $archiveassets = CreateArchiveList
             }
@@ -544,7 +548,7 @@ foreach ($site in $Sites) {
         #Region VPN
         ################ VPN ######################
         $templateid = GetTemplateId("VPNs")
-        $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -eq "site-vpn" }
+        $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/rest/networkconf/" -WebSession $myWebSession).data | Where-Object { $_.Purpose -match "vpn" }
         if ($null -ne $devices) {
             foreach ($device in $devices) {
                 $name = SetName
