@@ -16,8 +16,6 @@ $huduheads = @{
 #IP Info
 [string]$ipinfotoken = 'XXXXXXXXXXXXXXXX'  #This isn't required but i recommend signing up for a token at https://ipinfo.io/ i use it to decipher the ISP from the WAN IP, not strictly necessary since you can ping it without a key but the API limit is tiny.
 
-$regex = ‘\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b’ #RegEx to Get IP Address results
-
 Write-Host "`nSync started at $(Get-Date)"
 Write-Host "`nStarting Unifi Update"
 #EndRegion Variables
@@ -437,7 +435,7 @@ foreach ($site in $Sites) {
                 $oldassets = ($assets | Where-Object { $_.asset_layout_id -eq $templateid -and $_.fields.value -match $device._id })
                 $name = SetName
                 $router = ($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" })
-                $routerip = ($router | ConvertTo-Json | select-string -Pattern $regex | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })
+                $routerip = ($router | ConvertTo-Json | select-string -Pattern '\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b' | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })
                 if ($oldassets.fields.value -notmatch $device.wan_ip -and $oldassets.fields.value -notmatch $device.wan_ip) {
                     if ($device.wan_type -match 'static') {
                         $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
