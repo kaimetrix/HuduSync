@@ -436,7 +436,7 @@ foreach ($site in $Sites) {
                 $name = SetName
                 $router = ($assets | Where-Object { $_.asset_layout_id -eq $(GetTemplateId("Network Devices")) -and $_.fields.value -eq $location -and $_.fields.value -eq "Router" })
                 $routerip = ($router | ConvertTo-Json | select-string -Pattern '\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b' | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })
-                if ($oldassets.fields.value -notmatch $device.wan_ip -and $oldassets.fields.value -notmatch $device.wan_ip) {
+                if ($($oldassets | Where-Object { $_.fields.value -notmatch $device.wan_ip -and $_.fields.value -notmatch $routerip}).count -gt 1) {
                     if ($device.wan_type -match 'static') {
                         $inetinfo = ((Invoke-Restmethod -Uri "http://ipinfo.io/$($device.wan_ip)?token=$ipinfotoken").org -replace '(^[\S\d]{1,12} )', '')
                     }
