@@ -22,20 +22,6 @@ Write-Host "`nSync started at $(Get-Date)"
 Write-Host "`nStarting Unifi Update"
 #EndRegion Variables
 #Region Functions
-function GetSites() {
-    $Sites = (Invoke-Restmethod -Uri "$($controller)/api/self/sites" -WebSession $myWebSession).data
-    return $Sites
-    }
-
-function UniFiLogin() {
-    try {
-        Invoke-Restmethod -Uri "$($controller)/api/login" -method post -body $credential -ContentType "application/json; charset=utf-8"  -SessionVariable myWebSession | Out-Null
-    }
-    catch {
-        Write-Host $_.Exception.Message
-    }
-    return $myWebSession
-}
 function GetPortForwards() {
     $pforwards = (Invoke-Restmethod -Uri "$($controller)/api/s/$($site.name)/stat/portforward" -WebSession $myWebSession).data
     $forwards = New-Object System.Collections.Generic.List[System.Object]
@@ -218,10 +204,24 @@ function GetFieldId($fieldname) {
 }
 #EndRegion Functions
 #Region Global Dynamic Variables
-$Companies = ((Invoke-Restmethod -Uri "$($huduurl)/companies?page_size=999" -Headers $huduheads).companies)
-$myWebSession = UniFiLogin
-$Sites = GetSites | Sort-Object -Property desc
-$Layouts = (Invoke-Restmethod -Uri "$($huduurl)/asset_layouts" -Headers $huduheads).asset_layouts
+try {
+    Invoke-Restmethod -Uri "$($controller)/api/login" -method post -body $credential -ContentType "application/json; charset=utf-8"  -SessionVariable myWebSession | Out-Null
+    $Sites = (Invoke-Restmethod -Uri "$($controller)/api/self/sites" -WebSession $myWebSession).data
+}
+catch {
+    Write-Host $_.Exception.Message
+    Write-Host "Failed to Login to Unifi and get Sites, check above message"
+    exit
+}
+try {
+    $Companies = ((Invoke-Restmethod -Uri "$($huduurl)/companies?page_size=999" -Headers $huduheads).companies)
+    $Layouts = (Invoke-Restmethod -Uri "$($huduurl)/asset_layouts" -Headers $huduheads).asset_layouts
+}
+catch {
+    Write-Host $_.Exception.Message
+    Write-Host "Failed to Login to HUDU and get Companies and Layouts, check above message"
+    exit
+}
 #EndRegion Global Dynamic Variables
 foreach ($site in $Sites) {  
     $company = ($Companies | Where-Object { $($site.desc) -like "*$($_.name)*" })
