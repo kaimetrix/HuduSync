@@ -65,43 +65,6 @@ function GetSpeedTest() {
     }
     return "$stest"
 }
-
-function GetCompanies() {
-    $i = 1
-    $Companies = New-Object System.Collections.Generic.List[System.Object]
-    while ($i -lt 9999) {
-        $newcomps = ((Invoke-Restmethod -Uri "$($huduurl)/companies?page=$i&page_size=100" -Headers $huduheads).companies)
-        $i++
-        if ($newcomps.count -eq 0) {
-            break
-        }
-        $Companies += $newcomps
-    }
-    return $Companies
-}
-
-function GetAssets() {
-    $i = 1
-    $assets = New-Object System.Collections.Generic.List[System.Object]
-    while ($i -lt 9999) {
-        try {
-            $newassets = (Invoke-Restmethod -Uri "$($huduurl)/companies/$($company.id)/assets?page=$i&page_size=500" -Headers $huduheads)
-            if ($null -ne $newassets -and $newassets.assets.count -eq 0) {
-                $newassets = $newassets | ConvertFrom-Json -AsHashTable
-            }
-        }
-        catch {
-            $newassets > $null
-        }
-        $assets += $newassets.assets
-        if ($($newassets.assets).count -lt 500) {
-            break
-        }
-        $i++
-    }
-    return $assets
-}
-
 function WriteAssets() {
     $body.asset.fields = $body.asset.fields | Where-Object { $null -ne $oldasset.fields.value }
     if ($name -notmatch "element-") {
@@ -255,7 +218,7 @@ function GetFieldId($fieldname) {
 }
 #EndRegion Functions
 #Region Global Dynamic Variables
-$Companies = GetCompanies
+$Companies = ((Invoke-Restmethod -Uri "$($huduurl)/companies?page_size=999" -Headers $huduheads).companies)
 $myWebSession = UniFiLogin
 $Sites = GetSites | Sort-Object -Property desc
 $Layouts = (Invoke-Restmethod -Uri "$($huduurl)/asset_layouts" -Headers $huduheads).asset_layouts
@@ -268,7 +231,7 @@ foreach ($site in $Sites) {
         #Region Network Devices
         ################ Devices ######################
         $templateid = GetTemplateId("Network Devices")
-        $assets = GetAssets
+        $assets = ((Invoke-WebRequest -UseBasicParsing -Uri  "$($huduurl)/companies/$($company.id)/assets?page_size=999" -Headers $huduheads) -creplace "CrashPlan", "CrashPlan2" | ConvertFrom-Json).assets
         $devices = (Invoke-Restmethod -Uri "$controller/api/s/$($site.name)/stat/device" -WebSession $myWebSession).data | Where-Object { $_.adopted -eq $true }
         if ($null -ne $devices) {
             foreach ($device in $devices) {
